@@ -8,8 +8,11 @@
     <!-- デザイン用：Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- PDF処理用：pdf-lib -->
+    <!-- PDF処理用：pdf-lib (編集用) -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- PDF表示用：pdf.js (プレビュー用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
     <!-- ダウンロード用：FileSaver -->
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <!-- ZIP圧縮用：JSZip -->
@@ -46,11 +49,15 @@
             background-color: #e8f0fe;
             border-color: #1a73e8;
         }
+        /* プレビュー用キャンバスのトランジション */
+        #rotate-preview-canvas {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
     </style>
 </head>
 <body class="text-gray-600">
 
-    <!-- ヘッダー (修正: 右側の文字を削除して元に戻す) -->
+    <!-- ヘッダー -->
     <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center shadow-sm sticky top-0 z-50">
         <span class="material-icons-outlined text-blue-600 text-3xl mr-3">picture_as_pdf</span>
         <h1 class="text-xl font-medium text-gray-700">PDF Tools</h1>
@@ -62,7 +69,7 @@
         <!-- カードコンテナ -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             
-            <!-- タブ切り替え (3つに分割) -->
+            <!-- タブ切り替え -->
             <div class="flex border-b border-gray-200">
                 <button onclick="switchTab('merge')" id="tab-merge" class="flex-1 py-4 text-center font-medium text-blue-600 border-b-2 border-blue-600 hover:bg-gray-50 transition">
                     <span class="material-icons-outlined align-middle mr-1">merge</span> 結合
@@ -95,7 +102,9 @@
                     </div>
 
                     <div id="file-list-container-merge" class="hidden">
-                        <p class="text-xs text-gray-400 mb-2 ml-1">結合する順序:</p>
+                        <div class="flex justify-between items-end mb-2 ml-1">
+                            <p class="text-xs text-gray-400">結合する順序 (矢印で並べ替え):</p>
+                        </div>
                         <ul id="file-list-merge" class="space-y-2 mb-3"></ul>
                         <div class="text-center">
                             <button onclick="document.getElementById('file-input-merge').click()" class="text-blue-600 text-sm font-medium hover:underline flex items-center justify-center mx-auto py-2">
@@ -160,17 +169,33 @@
                         <p class="text-xs text-gray-400 mt-1">回転したいPDFを1つ選択</p>
                     </div>
 
-                    <div id="file-preview-rotate" class="hidden bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between">
-                        <div class="flex items-center">
-                            <span class="material-icons-outlined text-blue-600 mr-3">description</span>
-                            <span id="rotate-filename" class="text-sm font-medium text-gray-700 truncate max-w-[200px]">filename.pdf</span>
+                    <!-- プレビューエリア -->
+                    <div id="file-preview-rotate" class="hidden space-y-4">
+                        <!-- ファイル名と削除ボタン -->
+                        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="material-icons-outlined text-blue-600 mr-3">description</span>
+                                <span id="rotate-filename" class="text-sm font-medium text-gray-700 truncate max-w-[200px]">filename.pdf</span>
+                            </div>
+                            <button onclick="clearRotateFile()" class="text-gray-400 hover:text-red-500">
+                                <span class="material-icons-outlined">close</span>
+                            </button>
                         </div>
-                        <button onclick="clearRotateFile()" class="text-gray-400 hover:text-red-500">
-                            <span class="material-icons-outlined">close</span>
-                        </button>
+                        
+                        <!-- 1ページ目のビジュアルプレビュー -->
+                        <div class="text-center bg-gray-100 rounded-lg p-4 border border-gray-200 relative overflow-hidden">
+                            <p class="text-xs text-gray-500 mb-2">プレビュー (1ページ目)</p>
+                            <div class="relative inline-block shadow-lg">
+                                <canvas id="rotate-preview-canvas" class="max-h-[300px] max-w-full bg-white"></canvas>
+                                <!-- ローディング表示 -->
+                                <div id="preview-loader" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 hidden">
+                                    <div class="spinner border-blue-500 border-t-transparent"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- アクションボタンエリア: 2つのボタンを並べる -->
+                    <!-- アクションボタンエリア -->
                     <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
                         <button onclick="rotatePDF(90)" id="btn-rotate-90" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-medium shadow-md btn-ripple disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center" disabled>
                             <span class="material-icons-outlined mr-2">rotate_right</span>
@@ -186,7 +211,7 @@
 
             </div>
             
-            <!-- フッター (修正: 会社名を中央に追加) -->
+            <!-- フッター -->
             <div class="bg-gray-50 px-8 py-6 text-xs text-gray-400 text-center border-t border-gray-200">
                 <p class="mb-2">処理はすべてブラウザ内で行われます。ファイルが外部サーバーに送信されることはありません。</p>
                 <p class="font-light text-gray-500">2026 business support inc.</p>
@@ -205,31 +230,32 @@
         // ==========================================
         let mergeFiles = [];
         let splitFile = null;
-        let rotateFile = null; // 回転用ファイル
+        let rotateFile = null;
+        let currentRotation = 0; // プレビュー用の現在の回転角度
 
-        // ライブラリの準備
-        // degrees関数は回転角度を指定するために必要
+        // PDFライブラリ (編集用)
         const { PDFDocument, degrees } = PDFLib;
+
+        // PDF.js (表示用) の設定
+        // CDNから読み込んだ pdfjsLib を使用
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // ==========================================
         // UI操作ロジック
         // ==========================================
 
-        // タブ切り替え
         function switchTab(mode) {
             const tabs = ['merge', 'split', 'rotate'];
-            
             tabs.forEach(tab => {
                 const tabElem = document.getElementById(`tab-${tab}`);
                 const contentElem = document.getElementById(`content-${tab}`);
                 
                 if (tab === mode) {
-                    // 選択状態
                     tabElem.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
                     tabElem.classList.remove('text-gray-500');
                     contentElem.classList.remove('hidden');
                 } else {
-                    // 非選択状態
                     tabElem.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
                     tabElem.classList.add('text-gray-500');
                     contentElem.classList.add('hidden');
@@ -237,7 +263,6 @@
             });
         }
 
-        // トースト通知
         function showToast(message) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -257,7 +282,6 @@
             handleMergeFiles(e.target.files);
             fileInputMerge.value = '';
         });
-
         dropZoneMerge.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneMerge.classList.add('drag-active'); });
         dropZoneMerge.addEventListener('dragleave', () => dropZoneMerge.classList.remove('drag-active'));
         dropZoneMerge.addEventListener('drop', (e) => {
@@ -281,32 +305,43 @@
             const btn = document.getElementById('btn-merge');
             
             list.innerHTML = '';
-            
-            if (mergeFiles.length > 0) {
-                listContainer.classList.remove('hidden');
-            } else {
-                listContainer.classList.add('hidden');
-            }
+            listContainer.classList.toggle('hidden', mergeFiles.length === 0);
 
             mergeFiles.forEach((file, index) => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between bg-white border border-gray-200 p-3 rounded-lg shadow-sm';
+                
+                const isFirst = index === 0;
+                const isLast = index === mergeFiles.length - 1;
+                const upClass = isFirst ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100';
+                const downClass = isLast ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100';
+
                 li.innerHTML = `
-                    <div class="flex items-center overflow-hidden">
+                    <div class="flex items-center overflow-hidden flex-1">
                         <span class="material-icons-outlined text-red-500 mr-3">picture_as_pdf</span>
-                        <div class="flex flex-col">
+                        <div class="flex flex-col overflow-hidden">
                             <span class="text-sm text-gray-700 truncate font-medium">${file.name}</span>
                             <span class="text-xs text-gray-400">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
                         </div>
                     </div>
-                    <button onclick="removeMergeFile(${index})" class="text-gray-400 hover:text-red-500 p-2 hover:bg-gray-100 rounded-full transition">
-                        <span class="material-icons-outlined text-lg">delete</span>
-                    </button>
+                    <div class="flex items-center ml-2">
+                        <div class="flex flex-col mr-3 border-r border-gray-200 pr-2">
+                            <button onclick="moveMergeFile(${index}, -1)" class="p-0.5 rounded transition ${upClass}" ${isFirst ? 'disabled' : ''}><span class="material-icons-outlined text-lg">keyboard_arrow_up</span></button>
+                            <button onclick="moveMergeFile(${index}, 1)" class="p-0.5 rounded transition ${downClass}" ${isLast ? 'disabled' : ''}><span class="material-icons-outlined text-lg">keyboard_arrow_down</span></button>
+                        </div>
+                        <button onclick="removeMergeFile(${index})" class="text-gray-400 hover:text-red-500 p-2 hover:bg-gray-100 rounded-full transition"><span class="material-icons-outlined text-lg">delete</span></button>
+                    </div>
                 `;
                 list.appendChild(li);
             });
-
             btn.disabled = mergeFiles.length < 2;
+        }
+
+        function moveMergeFile(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= mergeFiles.length) return;
+            [mergeFiles[index], mergeFiles[newIndex]] = [mergeFiles[newIndex], mergeFiles[index]];
+            updateMergeFileList();
         }
 
         function removeMergeFile(index) {
@@ -317,38 +352,31 @@
         async function mergePDFs() {
             const btn = document.getElementById('btn-merge');
             const originalText = btn.innerHTML;
-            
             try {
                 btn.disabled = true;
                 btn.innerHTML = '<div class="spinner mr-2"></div> 処理中...';
-
                 const mergedPdf = await PDFDocument.create();
-
                 for (const file of mergeFiles) {
                     const fileArrayBuffer = await file.arrayBuffer();
                     const pdf = await PDFDocument.load(fileArrayBuffer);
                     const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                     copiedPages.forEach((page) => mergedPdf.addPage(page));
                 }
-
                 const pdfBytes = await mergedPdf.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 saveAs(blob, `merged_${new Date().getTime()}.pdf`);
-                
                 showToast('結合が完了しました！');
                 mergeFiles = [];
                 updateMergeFileList();
-
             } catch (err) {
                 console.error(err);
-                alert('エラーが発生しました: ' + err.message);
+                alert('エラー: ' + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
                 updateMergeFileList();
             }
         }
-
 
         // ==========================================
         // 分割機能 (Split)
@@ -385,18 +413,14 @@
         async function splitPDF() {
             const btn = document.getElementById('btn-split');
             const originalText = btn.innerHTML;
-
             try {
                 btn.disabled = true;
                 btn.innerHTML = '<div class="spinner mr-2"></div> 処理中...';
-
                 const fileArrayBuffer = await splitFile.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(fileArrayBuffer);
                 const pageCount = pdfDoc.getPageCount();
-
                 const zip = new JSZip();
                 const folder = zip.folder("split_pages");
-
                 for (let i = 0; i < pageCount; i++) {
                     const newPdf = await PDFDocument.create();
                     const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
@@ -405,16 +429,13 @@
                     const fileName = `page_${String(i + 1).padStart(3, '0')}.pdf`;
                     folder.file(fileName, pdfBytes);
                 }
-
                 const content = await zip.generateAsync({ type: "blob" });
                 saveAs(content, `split_files_${new Date().getTime()}.zip`);
-
                 showToast('分割・ダウンロードが完了しました！');
                 clearSplitFile();
-
             } catch (err) {
                 console.error(err);
-                alert('エラーが発生しました: ' + err.message);
+                alert('エラー: ' + err.message);
             } finally {
                 if (splitFile) btn.disabled = false;
                 btn.innerHTML = originalText;
@@ -422,10 +443,12 @@
         }
 
         // ==========================================
-        // 回転機能 (Rotate) - 更新: 90/180度対応
+        // 回転機能 (Rotate) - プレビュー対応
         // ==========================================
         const fileInputRotate = document.getElementById('file-input-rotate');
         const dropZoneRotate = document.getElementById('drop-zone-rotate');
+        const previewCanvas = document.getElementById('rotate-preview-canvas');
+        const previewLoader = document.getElementById('preview-loader');
 
         fileInputRotate.addEventListener('change', (e) => handleRotateFile(e.target.files[0]));
         dropZoneRotate.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneRotate.classList.add('drag-active'); });
@@ -436,31 +459,75 @@
             handleRotateFile(e.dataTransfer.files[0]);
         });
 
-        function handleRotateFile(file) {
+        async function handleRotateFile(file) {
             if (!file || file.type !== 'application/pdf') return alert('PDFファイルを選択してください。');
             
             rotateFile = file;
+            currentRotation = 0; // 回転角度リセット
+            previewCanvas.style.transform = `rotate(0deg)`; // CSSもリセット
+
             document.getElementById('drop-zone-rotate').classList.add('hidden');
             document.getElementById('file-preview-rotate').classList.remove('hidden');
             document.getElementById('rotate-filename').textContent = file.name;
             
-            // 両方のボタンを有効化
             document.getElementById('btn-rotate-90').disabled = false;
             document.getElementById('btn-rotate-180').disabled = false;
+
+            // プレビュー生成開始
+            await renderPDFPreview(file);
         }
 
         function clearRotateFile() {
             rotateFile = null;
             document.getElementById('drop-zone-rotate').classList.remove('hidden');
             document.getElementById('file-preview-rotate').classList.add('hidden');
-            // 両方のボタンを無効化
             document.getElementById('btn-rotate-90').disabled = true;
             document.getElementById('btn-rotate-180').disabled = true;
             fileInputRotate.value = '';
+            
+            // キャンバスクリア
+            const ctx = previewCanvas.getContext('2d');
+            ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            previewCanvas.style.transform = 'none';
+        }
+
+        // pdf.js を使ったプレビュー描画関数
+        async function renderPDFPreview(file) {
+            try {
+                previewLoader.classList.remove('hidden');
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument(arrayBuffer);
+                const pdf = await loadingTask.promise;
+                
+                // 1ページ目を取得
+                const page = await pdf.getPage(1);
+                
+                // スケール決定（高解像度で綺麗に見せるため少し大きめに）
+                const scale = 1.0;
+                const viewport = page.getViewport({ scale: scale });
+
+                // キャンバス設定
+                const context = previewCanvas.getContext('2d');
+                previewCanvas.height = viewport.height;
+                previewCanvas.width = viewport.width;
+
+                // レンダリング実行
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                await page.render(renderContext).promise;
+
+            } catch (error) {
+                console.error('Preview error:', error);
+                // エラー時はキャンバスにエラーを表示しない（またはプレースホルダなどを表示してもよい）
+            } finally {
+                previewLoader.classList.add('hidden');
+            }
         }
 
         async function rotatePDF(angle) {
-            // 押されたボタンを特定してロード状態にする
             const btnId = angle === 90 ? 'btn-rotate-90' : 'btn-rotate-180';
             const btn = document.getElementById(btnId);
             const otherBtnId = angle === 90 ? 'btn-rotate-180' : 'btn-rotate-90';
@@ -470,40 +537,41 @@
             const originalIcon = angle === 90 ? 'rotate_right' : 'sync';
 
             try {
-                // UIロック
                 btn.disabled = true;
-                otherBtn.disabled = true; // もう片方も押せないようにする
+                otherBtn.disabled = true;
                 btn.innerHTML = '<div class="spinner mr-2"></div> 処理中...';
 
-                // ファイルを読み込む
+                // ファイル処理
                 const fileArrayBuffer = await rotateFile.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(fileArrayBuffer);
                 const pages = pdfDoc.getPages();
 
-                // 全ページを指定角度分回転
                 pages.forEach(page => {
-                    const currentRotation = page.getRotation(); 
-                    page.setRotation(degrees(currentRotation.angle + angle)); 
+                    const currentRot = page.getRotation(); 
+                    page.setRotation(degrees(currentRot.angle + angle)); 
                 });
 
-                // 保存
                 const pdfBytes = await pdfDoc.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 saveAs(blob, `rotated_${angle}deg_${new Date().getTime()}.pdf`);
 
-                showToast(`PDFを${angle}度回転しました！`);
-                clearRotateFile();
+                // ビジュアル的な回転（プレビュー画像を回す）
+                // 累積で回転させる
+                currentRotation += angle;
+                previewCanvas.style.transform = `rotate(${currentRotation}deg)`;
+
+                showToast(`PDFを${angle}度回転して保存しました`);
+                // 回転した後も、さらに回転させたい場合があるのでファイルはクリアしない
+                // clearRotateFile(); 
 
             } catch (err) {
                 console.error(err);
-                alert('エラーが発生しました: ' + err.message);
+                alert('エラー: ' + err.message);
             } finally {
-                // UI状態復帰 (ファイルがあれば有効化)
                 if (rotateFile) {
                     btn.disabled = false;
                     otherBtn.disabled = false;
                 }
-                // ボタンの見た目を戻す（アイコン付き）
                 btn.innerHTML = `<span class="material-icons-outlined mr-2">${originalIcon}</span><span>${angle}度回転</span>`;
             }
         }
